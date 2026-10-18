@@ -1,7 +1,11 @@
-from core import TokenAnalyzer, FastHeuristicCompressor, AICompressor, MAX_INPUT_LENGTH
+import sys
+from core import TokenAnalyzer, FastHeuristicCompressor, AICompressor, CostEstimator, MAX_INPUT_LENGTH
+
+if sys.platform == "win32":
+    try: sys.stdout.reconfigure(encoding="utf-8")
+    except Exception: pass
 
 analyzer = TokenAnalyzer()
-
 tests = [
     "do a pdf scan for me",
     "do a scan for me",
@@ -12,64 +16,32 @@ tests = [
     "Basically I just want you to figure out why this python script is failing with KeyError"
 ]
 
-print("=" * 60)
-print("TOKEN OPTIMIZATION BENCHMARK")
-print("=" * 60)
-
+print("=" * 60 + "\nTOKEN OPTIMIZATION BENCHMARK\n" + "=" * 60)
 for t in tests:
     comp = FastHeuristicCompressor.compress(t)
-    stats = analyzer.analyze_comparison(t, comp)
-    print(f"RAW INPUT   [{stats['original_tokens']} tokens]: {t}")
-    print(f"COMPRESSED  [{stats['optimized_tokens']} tokens]: {comp}")
-    print(f"SAVED:       {stats['tokens_saved']} tokens ({stats['percentage_saved']}%)")
-    print("-" * 60)
+    st = analyzer.analyze_comparison(t, comp)
+    print(f"RAW INPUT   [{st['original_tokens']} tokens]: {t}")
+    print(f"COMPRESSED  [{st['optimized_tokens']} tokens]: {comp}")
+    print(f"SAVED:       {st['tokens_saved']} tokens ({st['percentage_saved']}%)\n" + "-" * 60)
 
-import sys
-
-if sys.platform == "win32":
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
-
-print("\nSECURITY & BOUNDARY TESTS")
-print("=" * 60)
-
-# Test 1: No control characters injected
-escaped_test = FastHeuristicCompressor.compress("find out whether the database is responsive")
-assert "\x01" not in escaped_test, "Failed: Control character \\x01 found in output!"
+print("\nSECURITY & BOUNDARY TESTS\n" + "=" * 60)
+assert "\x01" not in FastHeuristicCompressor.compress("find out whether the database is responsive")
 print("[PASS] Control character \\x01 avoidance verified.")
 
-# Test 2: Input length bounds enforcement
 try:
-    oversized = "a" * (MAX_INPUT_LENGTH + 1)
-    FastHeuristicCompressor.compress(oversized)
+    FastHeuristicCompressor.compress("a" * (MAX_INPUT_LENGTH + 1))
     print("[FAIL] Oversized input did not raise ValueError")
 except ValueError:
     print("[PASS] Max input length limit properly enforced (ValueError raised).")
 
-# Test 3: Tokenizer memory protection
-bounded_tokens = analyzer.count_tokens("a" * (MAX_INPUT_LENGTH + 5000))
-assert bounded_tokens > 0
+assert analyzer.count_tokens("a" * (MAX_INPUT_LENGTH + 5000)) > 0
 print("[PASS] Tokenizer bounds large input safely without memory exhaustion.")
 
-# Test 4: AI Compressor multi-tenant credential isolation
-ai = AICompressor(api_key=None, allow_env_fallback=False)
-assert not ai.is_available(), "Failed: AICompressor fell back to environment key when allow_env_fallback=False"
+assert not AICompressor(api_key=None, allow_env_fallback=False).is_available()
 print("[PASS] Multi-tenant environment API key fallback prevention verified.")
 
-# Test 5: Cost Estimator and ROI calculation
-from core import CostEstimator, DEFAULT_PRICING_PER_MILLION
-savings = CostEstimator.estimate_savings(
-    tokens_saved=10,
-    original_tokens=25,
-    optimized_tokens=15,
-    request_volume=1_000_000
-)
-assert "GPT-4o" in savings["models"], "Failed: GPT-4o missing from pricing models"
-assert savings["models"]["GPT-4o"]["savings"] == 25.0, f"Expected $25.0 savings, got {savings['models']['GPT-4o']['savings']}"
+savings = CostEstimator.estimate_savings(10, 25, 15, request_volume=1_000_000)
+assert "GPT-4o" in savings["models"] and savings["models"]["GPT-4o"]["savings"] == 25.0
 print("[PASS] Real-time cost estimator and financial ROI calculations verified.")
 
-print("=" * 60)
-print("ALL TESTS PASSED SUCCESSFULLY!")
-print("=" * 60)
+print("=" * 60 + "\nALL TESTS PASSED SUCCESSFULLY!\n" + "=" * 60)
