@@ -1,7 +1,8 @@
 import streamlit as st
 import time
+import os
 from core.tokenizer import TokenAnalyzer
-from core.compressor import FastHeuristicCompressor, AICompressor
+from core.compressor import FastHeuristicCompressor, AICompressor, MAX_INPUT_LENGTH
 
 st.set_page_config(
     page_title="Prompt Token Optimizer",
@@ -68,12 +69,20 @@ with st.sidebar:
     )
     
     gemini_key = ""
+    allow_env = False
     if "AI-Powered" in mode:
         gemini_key = st.text_input(
             "Gemini API Key",
             type="password",
-            help="Optional if GEMINI_API_KEY environment variable is set."
+            help="Enter your Gemini API key."
         )
+        has_server_env = bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
+        if has_server_env and not gemini_key:
+            allow_env = st.checkbox(
+                "Use host environment key (GEMINI_API_KEY)",
+                value=False,
+                help="Enable only if you are authorized to consume the host machine's API quota."
+            )
 
     st.markdown("---")
     st.subheader("💡 Quick Examples")
@@ -110,39 +119,56 @@ user_input = st.text_area(
     "Enter Human Request:",
     value=default_input,
     height=130,
-    placeholder="Type naturally (e.g. 'do a pdf scan for me', 'can you please help me write code for...')"
+    max_chars=MAX_INPUT_LENGTH,
+    placeholder=f"Type naturally (e.g. 'do a pdf scan for me', 'can you please help me write code for...'). Limit: {MAX_INPUT_LENGTH:,} characters."
 )
 
 col_run, col_clear = st.columns([1, 5])
 with col_run:
     optimize_btn = st.button("🚀 Optimize Prompt", type="primary", use_container_width=True)
 
+input_valid = True
 if user_input:
     orig_tokens = analyzer.count_tokens(user_input)
-    st.caption(f"Input Length: **{orig_tokens}** tokens | **{len(user_input)}** characters")
+    char_len = len(user_input)
+    if char_len > MAX_INPUT_LENGTH:
+        st.error(f"⚠️ Input length ({char_len:,} characters) exceeds the maximum allowed limit of {MAX_INPUT_LENGTH:,} characters.")
+        input_valid = False
+    else:
+        st.caption(f"Input Length: **{orig_tokens}** tokens | **{char_len:,}** / {MAX_INPUT_LENGTH:,} characters")
 
 # Execute optimization
 if optimize_btn and user_input.strip():
-    start_time = time.perf_counter()
-    
-    optimized_text = ""
-    error_msg = None
-
-    if "Ultra-Fast" in mode:
-        optimized_text = FastHeuristicCompressor.compress(user_input)
+    if not input_valid or len(user_input) > MAX_INPUT_LENGTH:
+        st.error(f"Cannot optimize: Input exceeds maximum allowed limit of {MAX_INPUT_LENGTH:,} characters.")
     else:
-        ai_compressor = AICompressor(api_key=gemini_key)
-        if not ai_compressor.is_available():
-            st.warning("⚠️ No Gemini API key provided. Falling back to Ultra-Fast Offline Engine.")
-            optimized_text = FastHeuristicCompressor.compress(user_input)
-        else:
-            with st.spinner("AI is compressing prompt..."):
-                optimized_text, error_msg = ai_compressor.compress(user_input)
-            if error_msg:
-                st.error(f"AI Compression failed: {error_msg}. Using offline fallback.")
-                optimized_text = FastHeuristicCompressor.compress(user_input)
+        start_time = time.perf_counter()
+        
+        optimized_text = ""
+        error_msg = None
 
-    elapsed_ms = (time.perf_counter() - start_time) * 1000
+        if "Ultra-Fast" in mode:
+            try:
+                optimized_text = FastHeuristicCompressor.compress(user_input)
+            except Exception as e:
+                st.error(f"Compression error: {e}")
+                optimized_text = user_input
+        else:
+            ai_compressor = AICompressor(
+                api_key=gemini_key.strip() if gemini_key else None,
+                allow_env_fallback=allow_env
+            )
+            if not ai_compressor.is_available():
+                st.warning("⚠️ No valid Gemini API key configured. Provide an API key or check 'Use host environment key' in sidebar. Falling back to Ultra-Fast Offline Engine.")
+                optimized_text = FastHeuristicCompressor.compress(user_input)
+            else:
+                with st.spinner("AI is compressing prompt..."):
+                    optimized_text, error_msg = ai_compressor.compress(user_input)
+                if error_msg:
+                    st.error(f"AI Compression Notice: {error_msg} Defaulting to offline engine.")
+                    optimized_text = FastHeuristicCompressor.compress(user_input)
+
+        elapsed_ms = (time.perf_counter() - start_time) * 1000
 
     # Calculate metrics
     metrics = analyzer.analyze_comparison(user_input, optimized_text)

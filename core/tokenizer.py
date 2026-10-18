@@ -5,6 +5,8 @@ Uses tiktoken for precise BPE token counting and savings calculation.
 from typing import Dict, Any
 import tiktoken
 
+MAX_INPUT_LENGTH = 10_000
+
 class TokenAnalyzer:
     def __init__(self, model_encoding: str = "cl100k_base"):
         """
@@ -18,9 +20,12 @@ class TokenAnalyzer:
             self.encoder = tiktoken.get_encoding("cl100k_base")
 
     def count_tokens(self, text: str) -> int:
-        """Returns the exact token count for the given text."""
+        """Returns the exact token count for the given text, safely bounded to MAX_INPUT_LENGTH."""
         if not text:
             return 0
+        # Guard against unbounded memory allocation during BPE tokenization
+        if len(text) > MAX_INPUT_LENGTH:
+            text = text[:MAX_INPUT_LENGTH]
         return len(self.encoder.encode(text))
 
     def analyze_comparison(self, original_text: str, optimized_text: str) -> Dict[str, Any]:

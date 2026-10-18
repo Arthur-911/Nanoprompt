@@ -16,8 +16,10 @@ if sys.platform == "win32":
     except Exception:
         pass
 
+import os
+import getpass
 from core.tokenizer import TokenAnalyzer
-from core.compressor import FastHeuristicCompressor, AICompressor
+from core.compressor import FastHeuristicCompressor, AICompressor, MAX_INPUT_LENGTH
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
@@ -28,7 +30,7 @@ def main():
     parser = argparse.ArgumentParser(description="Optimize prompts for minimal token consumption.")
     parser.add_argument("prompt", type=str, nargs="?", help="Human prompt to optimize")
     parser.add_argument("--ai", action="store_true", help="Use deep AI compression instead of fast offline rules")
-    parser.add_argument("--key", type=str, default=None, help="Gemini API Key (optional)")
+    parser.add_argument("--key", type=str, default=None, help="Gemini API Key (Passing via CLI argument is discouraged; prefer GEMINI_API_KEY env var)")
 
     args = parser.parse_args()
 
@@ -41,21 +43,41 @@ def main():
         console.print("[bold red]Error: No prompt provided.[/bold red]")
         sys.exit(1)
 
+    if len(prompt) > MAX_INPUT_LENGTH:
+        console.print(f"[bold red]Error: Input length ({len(prompt):,} characters) exceeds maximum supported limit of {MAX_INPUT_LENGTH:,} characters.[/bold red]")
+        sys.exit(1)
+
     analyzer = TokenAnalyzer()
     start = time.perf_counter()
 
     if args.ai:
-        compressor = AICompressor(api_key=args.key)
+        api_key = args.key
+        if api_key:
+            console.print("[bold yellow]Security Warning: Passing API keys via CLI arguments can expose credentials in process lists and shell logs. Prefer setting GEMINI_API_KEY environment variable.[/bold yellow]")
+        elif not (os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")):
+            console.print("[cyan]Gemini API key not found in environment.[/cyan]")
+            try:
+                entered_key = getpass.getpass("Enter Gemini API key (input hidden, or Enter to skip): ").strip()
+                if entered_key:
+                    api_key = entered_key
+            except Exception:
+                pass
+
+        compressor = AICompressor(api_key=api_key, allow_env_fallback=True)
         if not compressor.is_available():
-            console.print("[yellow]Notice: AI key not found, using fast offline engine.[/yellow]")
+            console.print("[yellow]Notice: Gemini API key unavailable. Using fast offline engine.[/yellow]")
             optimized = FastHeuristicCompressor.compress(prompt)
         else:
             optimized, err = compressor.compress(prompt)
             if err:
-                console.print(f"[red]AI error: {err}. Using offline fallback.[/red]")
+                console.print(f"[yellow]AI Notice: {err} Using offline fallback.[/yellow]")
                 optimized = FastHeuristicCompressor.compress(prompt)
     else:
-        optimized = FastHeuristicCompressor.compress(prompt)
+        try:
+            optimized = FastHeuristicCompressor.compress(prompt)
+        except ValueError as e:
+            console.print(f"[bold red]Error: {e}[/bold red]")
+            sys.exit(1)
 
     duration_ms = (time.perf_counter() - start) * 1000
     metrics = analyzer.analyze_comparison(prompt, optimized)
