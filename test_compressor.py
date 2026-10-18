@@ -58,6 +58,18 @@ ai = AICompressor(api_key=None, allow_env_fallback=False)
 assert not ai.is_available(), "Failed: AICompressor fell back to environment key when allow_env_fallback=False"
 print("[PASS] Multi-tenant environment API key fallback prevention verified.")
 
+# Test 5: Cost Estimator and ROI calculation
+from core import CostEstimator, DEFAULT_PRICING_PER_MILLION
+savings = CostEstimator.estimate_savings(
+    tokens_saved=10,
+    original_tokens=25,
+    optimized_tokens=15,
+    request_volume=1_000_000
+)
+assert "GPT-4o" in savings["models"], "Failed: GPT-4o missing from pricing models"
+assert savings["models"]["GPT-4o"]["savings"] == 25.0, f"Expected $25.0 savings, got {savings['models']['GPT-4o']['savings']}"
+print("[PASS] Real-time cost estimator and financial ROI calculations verified.")
+
 print("=" * 60)
 print("ALL TESTS PASSED SUCCESSFULLY!")
 print("=" * 60)

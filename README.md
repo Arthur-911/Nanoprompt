@@ -21,6 +21,7 @@ Exact token metrics are computed using Byte Pair Encoding (`tiktoken` cl100k_bas
 
 - **Instant Offline Processing:** Cleans common conversational padding (such as "Could you please help me to", "Thanks in advance", and "Basically I just want you to") without sending data over the network.
 - **Precise Token Measurement:** Accurately compares original input against optimized output using the standard BPE tokenizer used by modern LLMs.
+- **Real-Time Cost Savings & ROI Estimator:** Projects financial savings and return on investment across leading models (GPT-4o, Claude 3.5 Sonnet, Gemini 1.5 Pro, GPT-4o mini, Gemini Flash) based on scalable request volumes.
 - **Dual Interfaces:** Use either the browser-based dashboard for interactive testing or the command-line interface for terminal workflows and scripts.
 - **Built-in Security Safeguards:** Includes structural prompt injection protection (`<user_input>` boundary encapsulation), safe credential handling, input length ceilings to prevent memory exhaustion, and sanitized error reporting.
 
@@ -71,6 +72,8 @@ Then open your browser at `http://localhost:8501`. The interface provides:
 - Live side-by-side prompt comparisons.
 - Preset example queries for common tasks.
 - Real-time token and character reduction metrics.
+- Interactive financial savings calculator with adjustable request volumes (1,000 to 5,000,000 requests/month).
+- Cross-model pricing comparison matrix across Claude, OpenAI, and Gemini models.
 - Toggle between offline heuristic mode and AI restructuring mode.
 
 ### 2. Command Line Interface
@@ -80,6 +83,9 @@ For fast, single-command optimization directly in your terminal:
 ```bash
 # Fast offline optimization
 python cli.py "could you please help me do a pdf scan for me thanks in advance"
+
+# Optimize with custom projected monthly volume (e.g. 500,000 requests)
+python cli.py "do a pdf scan for me" --volume 500000
 
 # AI-powered semantic optimization
 python cli.py --ai "I was wondering if you could write some code to connect to PostgreSQL database and fetch users"
@@ -94,8 +100,20 @@ Example terminal output:
 +-----------------+----------------+------------------+----------------------+
 | Token Count     | 6              | 2                | -4 tokens (66.7%)    |
 | Character Count | 20             | 8                | -12 chars (60.0%)    |
-| Execution Time  | -              | -                | 3.47 ms              |
+| Execution Time  | -              | -                | 3.03 ms              |
 +-----------------+----------------+------------------+----------------------+
+
+            Projected Cost Savings & ROI (Volume: 100,000 requests)            
++-------------------+----------------+---------------+----------------+-------------+----------------+
+| Target Model      | Input Rate /1M | Original Cost | Optimized Cost | Net Savings | Savings per 1M |
++-------------------+----------------+---------------+----------------+-------------+----------------+
+| Claude 3.5 Sonnet | $3.00          | $1.80         | $0.60          | $1.20       | $12.00         |
+| GPT-4o            | $2.50          | $1.50         | $0.50          | $1.00       | $10.00         |
+| Gemini 1.5 Pro    | $1.25          | $0.75         | $0.25          | $0.50       | $5.00          |
+| Claude 3.5 Haiku  | $0.80          | $0.48         | $0.16          | $0.32       | $3.20          |
+| GPT-4o mini       | $0.15          | $0.09         | $0.03          | $0.06       | $0.60          |
+| Gemini Flash      | $0.07          | $0.04         | $0.01          | $0.03       | $0.30          |
++-------------------+----------------+---------------+----------------+-------------+----------------+
 
 [Original Human Input]: do a pdf scan for me
 [Optimized AI Prompt]:  Scan PDF
@@ -107,13 +125,14 @@ Example terminal output:
 
 ```text
 ├── core/
-│   ├── __init__.py       # Package exports for tokenizer and compressor classes
-│   ├── compressor.py     # FastHeuristicCompressor and AICompressor implementations
-│   └── tokenizer.py      # TokenAnalyzer class for BPE token counting and savings analysis
-├── app.py                # Streamlit web dashboard
-├── cli.py                # Terminal command-line interface with formatted output
-├── test_compressor.py    # Automated benchmark and security validation test suite
-└── requirements.txt      # Python dependencies with bounded versions
+│   ├── __init__.py          # Package exports for tokenizer, compressor, and cost estimator
+│   ├── compressor.py        # FastHeuristicCompressor and AICompressor implementations
+│   ├── tokenizer.py         # TokenAnalyzer class for BPE token counting and savings analysis
+│   └── cost_estimator.py    # CostEstimator class for real-time monetary ROI projections
+├── app.py                   # Streamlit web dashboard with interactive ROI calculator
+├── cli.py                   # Terminal CLI with formatted tables and volume projections
+├── test_compressor.py       # Automated benchmark, security, and ROI validation test suite
+└── requirements.txt         # Python dependencies with bounded versions
 ```
 
 ---

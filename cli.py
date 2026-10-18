@@ -20,6 +20,7 @@ import os
 import getpass
 from core.tokenizer import TokenAnalyzer
 from core.compressor import FastHeuristicCompressor, AICompressor, MAX_INPUT_LENGTH
+from core.cost_estimator import CostEstimator, DEFAULT_PRICING_PER_MILLION
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
@@ -31,6 +32,7 @@ def main():
     parser.add_argument("prompt", type=str, nargs="?", help="Human prompt to optimize")
     parser.add_argument("--ai", action="store_true", help="Use deep AI compression instead of fast offline rules")
     parser.add_argument("--key", type=str, default=None, help="Gemini API Key (Passing via CLI argument is discouraged; prefer GEMINI_API_KEY env var)")
+    parser.add_argument("--volume", type=int, default=100000, help="Projected request volume for ROI calculations (default: 100,000)")
 
     args = parser.parse_args()
 
@@ -110,6 +112,39 @@ def main():
 
     console.print()
     console.print(table)
+    console.print()
+
+    # Cost Savings and ROI Table
+    roi_data = CostEstimator.estimate_savings(
+        tokens_saved=metrics["tokens_saved"],
+        original_tokens=metrics["original_tokens"],
+        optimized_tokens=metrics["optimized_tokens"],
+        request_volume=args.volume
+    )
+
+    roi_table = Table(
+        title=f"Projected Cost Savings & ROI (Volume: {args.volume:,} requests)",
+        show_header=True,
+        header_style="bold magenta"
+    )
+    roi_table.add_column("Target Model", style="bold")
+    roi_table.add_column("Input Rate / 1M", justify="right")
+    roi_table.add_column(f"Original ({args.volume:,})", style="red", justify="right")
+    roi_table.add_column(f"Optimized ({args.volume:,})", style="green", justify="right")
+    roi_table.add_column("Net Savings", style="bold yellow", justify="right")
+    roi_table.add_column("Savings per 1M", style="bold cyan", justify="right")
+
+    for model_name, info in roi_data["models"].items():
+        roi_table.add_row(
+            model_name,
+            f"${info['rate_per_million']:.2f}",
+            f"${info['original_cost']:,.2f}",
+            f"${info['optimized_cost']:,.2f}",
+            f"${info['savings']:,.2f}",
+            f"${info['savings_per_1m']:,.2f}"
+        )
+
+    console.print(roi_table)
     console.print()
 
     console.print(Panel(prompt, title="[bold red]Original Human Input[/bold red]", border_style="red"))

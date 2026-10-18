@@ -3,6 +3,7 @@ import time
 import os
 from core.tokenizer import TokenAnalyzer
 from core.compressor import FastHeuristicCompressor, AICompressor, MAX_INPUT_LENGTH
+from core.cost_estimator import CostEstimator, DEFAULT_PRICING_PER_MILLION
 
 st.set_page_config(
     page_title="Prompt Token Optimizer",
@@ -35,6 +36,11 @@ st.markdown("""
         font-size: 28px;
         font-weight: 700;
         color: #38bdf8;
+    }
+    .metric-value-roi {
+        font-size: 28px;
+        font-weight: 700;
+        color: #a78bfa;
     }
     .metric-label {
         font-size: 13px;
@@ -221,3 +227,84 @@ if optimize_btn and user_input.strip():
         st.subheader("Optimized AI Prompt")
         st.text_area("Optimized", value=optimized_text, height=160, key="opt_disp")
         st.code(optimized_text, language="markdown")
+
+    # Real-Time Cost Savings & ROI Estimator Section
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("### Projected Cost Savings and ROI")
+    st.caption("Calculate projected financial savings based on your anticipated API request volumes across leading LLMs.")
+
+    roi_col_left, roi_col_right = st.columns([3, 2])
+
+    with roi_col_left:
+        volume = st.select_slider(
+            "Monthly Request Volume:",
+            options=[1_000, 10_000, 50_000, 100_000, 500_000, 1_000_000, 5_000_000],
+            value=100_000,
+            format_func=lambda x: f"{x:,} requests/month"
+        )
+
+    with roi_col_right:
+        target_model = st.selectbox(
+            "Primary Benchmark Model:",
+            options=list(DEFAULT_PRICING_PER_MILLION.keys()),
+            index=1  # GPT-4o
+        )
+
+    roi_data = CostEstimator.estimate_savings(
+        tokens_saved=metrics["tokens_saved"],
+        original_tokens=metrics["original_tokens"],
+        optimized_tokens=metrics["optimized_tokens"],
+        request_volume=volume
+    )
+
+    primary_stats = roi_data["models"][target_model]
+
+    rc1, rc2, rc3, rc4 = st.columns(4)
+    with rc1:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-value-orig">${primary_stats['original_cost']:,.2f}</div>
+            <div class="metric-label">Original Cost ({volume:,} reqs)</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with rc2:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-value-opt">${primary_stats['optimized_cost']:,.2f}</div>
+            <div class="metric-label">Optimized Cost ({volume:,} reqs)</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with rc3:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-value-roi">${primary_stats['savings']:,.2f}</div>
+            <div class="metric-label">Net Savings ({target_model})</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with rc4:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-value-saved">${primary_stats['savings_per_1m']:,.2f}</div>
+            <div class="metric-label">Savings per 1M Requests</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("#### Model Pricing Comparison Matrix")
+
+    comparison_records = []
+    for m_name, m_info in roi_data["models"].items():
+        comparison_records.append({
+            "Model": m_name,
+            "Rate / 1M Tokens": f"${m_info['rate_per_million']:.2f}",
+            f"Original ({volume:,} reqs)": f"${m_info['original_cost']:,.2f}",
+            f"Optimized ({volume:,} reqs)": f"${m_info['optimized_cost']:,.2f}",
+            f"Net Savings ({volume:,} reqs)": f"${m_info['savings']:,.2f}",
+            "Savings per 1M Reqs": f"${m_info['savings_per_1m']:,.2f}",
+            "Token Reduction": f"{metrics['percentage_saved']}%"
+        })
+
+    st.dataframe(comparison_records, use_container_width=True, hide_index=True)
