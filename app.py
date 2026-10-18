@@ -6,7 +6,6 @@ from core.compressor import FastHeuristicCompressor, AICompressor, MAX_INPUT_LEN
 
 st.set_page_config(
     page_title="Prompt Token Optimizer",
-    page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -60,12 +59,12 @@ analyzer = get_analyzer()
 
 # Sidebar: Configuration & Presets
 with st.sidebar:
-    st.header("⚡ Engine Settings")
+    st.header("Engine Settings")
     mode = st.radio(
         "Compression Strategy",
-        ["⚡ Ultra-Fast Offline (0ms)", "🤖 AI-Powered (Deep Semantic)"],
+        ["Fast Offline (Rule-Based)", "AI-Powered (Semantic Restructuring)"],
         index=0,
-        help="Fast Offline runs in <1ms without any API calls or internet. AI-Powered uses Gemini for complex prompts."
+        help="Fast Offline runs in <5ms without API calls or internet. AI-Powered uses Gemini for complex prompts."
     )
     
     gemini_key = ""
@@ -85,29 +84,29 @@ with st.sidebar:
             )
 
     st.markdown("---")
-    st.subheader("💡 Quick Examples")
+    st.subheader("Quick Examples")
     preset = st.selectbox(
         "Load a sample human input:",
         [
             "Select an example...",
-            "📄 PDF Scan Request",
-            "📊 Sales Data Analysis",
-            "💻 Database Query Implementation",
-            "🐞 Python Bug Fix",
-            "📝 Article Summary"
+            "PDF Scan Request",
+            "Sales Data Analysis",
+            "Database Query Implementation",
+            "Python Bug Fix",
+            "Article Summary"
         ]
     )
 
     preset_texts = {
-        "📄 PDF Scan Request": "do a pdf scan for me",
-        "📊 Sales Data Analysis": "Hey! Could you please help me to do an analysis of this sales data and tell me what is inside it? Thanks in advance!",
-        "💻 Database Query Implementation": "Hello, I was wondering if you could write some code to connect to PostgreSQL database and fetch users. Thanks!",
-        "🐞 Python Bug Fix": "Basically I just want you to figure out why this python script is failing with KeyError",
-        "📝 Article Summary": "Can you please kindly do a summary of this article for me asap?"
+        "PDF Scan Request": "do a pdf scan for me",
+        "Sales Data Analysis": "Hey! Could you please help me to do an analysis of this sales data and tell me what is inside it? Thanks in advance!",
+        "Database Query Implementation": "Hello, I was wondering if you could write some code to connect to PostgreSQL database and fetch users. Thanks!",
+        "Python Bug Fix": "Basically I just want you to figure out why this python script is failing with KeyError",
+        "Article Summary": "Can you please kindly do a summary of this article for me asap?"
     }
 
 # Main App Header
-st.title("⚡ Prompt Token Optimizer & Analyzer")
+st.title("Prompt Token Optimizer & Analyzer")
 st.caption("Convert conversational human requests into token-minimized AI prompts with live token savings.")
 
 # Input text handling
@@ -125,14 +124,14 @@ user_input = st.text_area(
 
 col_run, col_clear = st.columns([1, 5])
 with col_run:
-    optimize_btn = st.button("🚀 Optimize Prompt", type="primary", use_container_width=True)
+    optimize_btn = st.button("Optimize Prompt", type="primary", use_container_width=True)
 
 input_valid = True
 if user_input:
     orig_tokens = analyzer.count_tokens(user_input)
     char_len = len(user_input)
     if char_len > MAX_INPUT_LENGTH:
-        st.error(f"⚠️ Input length ({char_len:,} characters) exceeds the maximum allowed limit of {MAX_INPUT_LENGTH:,} characters.")
+        st.error(f"Input length ({char_len:,} characters) exceeds the maximum allowed limit of {MAX_INPUT_LENGTH:,} characters.")
         input_valid = False
     else:
         st.caption(f"Input Length: **{orig_tokens}** tokens | **{char_len:,}** / {MAX_INPUT_LENGTH:,} characters")
@@ -147,7 +146,7 @@ if optimize_btn and user_input.strip():
         optimized_text = ""
         error_msg = None
 
-        if "Ultra-Fast" in mode:
+        if "Fast Offline" in mode:
             try:
                 optimized_text = FastHeuristicCompressor.compress(user_input)
             except Exception as e:
@@ -159,7 +158,7 @@ if optimize_btn and user_input.strip():
                 allow_env_fallback=allow_env
             )
             if not ai_compressor.is_available():
-                st.warning("⚠️ No valid Gemini API key configured. Provide an API key or check 'Use host environment key' in sidebar. Falling back to Ultra-Fast Offline Engine.")
+                st.warning("No valid Gemini API key configured. Provide an API key or check 'Use host environment key' in sidebar. Falling back to fast offline engine.")
                 optimized_text = FastHeuristicCompressor.compress(user_input)
             else:
                 with st.spinner("AI is compressing prompt..."):
@@ -174,7 +173,7 @@ if optimize_btn and user_input.strip():
     metrics = analyzer.analyze_comparison(user_input, optimized_text)
 
     # Metrics Display Cards
-    st.markdown("### 📊 Token Reduction Dashboard")
+    st.markdown("### Token Reduction Dashboard")
     m1, m2, m3, m4 = st.columns(4)
 
     with m1:
@@ -215,10 +214,10 @@ if optimize_btn and user_input.strip():
     c_left, c_right = st.columns(2)
 
     with c_left:
-        st.subheader("🔴 Raw Human Input")
+        st.subheader("Original Human Input")
         st.text_area("Original", value=user_input, height=160, disabled=True, key="orig_disp")
 
     with c_right:
-        st.subheader("🟢 Optimized AI Prompt")
+        st.subheader("Optimized AI Prompt")
         st.text_area("Optimized", value=optimized_text, height=160, key="opt_disp")
         st.code(optimized_text, language="markdown")
